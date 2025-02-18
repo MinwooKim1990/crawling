@@ -1,5 +1,5 @@
 # %%
-def scrape_linkedin(scroll_count=10):
+def scrape_linkedin(scroll_count=10, save_csv=True, save_json=True):
     import time
     import csv
     import os
@@ -28,12 +28,14 @@ def scrape_linkedin(scroll_count=10):
     csv_filename = "linkedin_posts.csv"
     json_filename = "linkedin_posts.json"
     existing_posts = set()
-    if os.path.exists(csv_filename):
+    
+    if save_csv and os.path.exists(csv_filename):
         with open(csv_filename, 'r', encoding='utf-8-sig') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 existing_posts.add((row['Name'], row['Content']))
-    if os.path.exists(json_filename):
+                
+    if save_json and os.path.exists(json_filename):
         with open(json_filename, 'r', encoding='utf-8') as jsonfile:
             try:
                 json_data = json.load(jsonfile)
@@ -158,38 +160,46 @@ def scrape_linkedin(scroll_count=10):
                 "ID": current_max_id + post_idx,
                 "Name": name,
                 "Content": content,
-                "Image": ", ".join(image_files)
+                "Image": ", ".join([os.path.join('linkedin_images', img) for img in image_files])
             })
             print(f"새 게시글 {post_idx} 수집 완료: {name}")
 
         if new_data:
-            file_exists = os.path.exists(csv_filename)
-            with open(csv_filename, 'a', newline='', encoding="utf-8-sig") as csvfile:
-                fieldnames = ["ID", "Name", "Content", "Image"]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if save_csv:
+                file_exists = os.path.exists(csv_filename)
+                with open(csv_filename, 'a', newline='', encoding="utf-8-sig") as csvfile:
+                    fieldnames = ["ID", "Name", "Content", "Image"]
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-                if not file_exists:
-                    writer.writeheader()
-                writer.writerows(new_data)
+                    if not file_exists:
+                        writer.writeheader()
+                    writer.writerows(new_data)
 
-            if os.path.exists(json_filename):
-                with open(json_filename, 'r', encoding="utf-8") as jf:
-                    try:
-                        json_data = json.load(jf)
-                    except Exception:
-                        json_data = []
-            else:
-                json_data = []
+            if save_json:
+                if os.path.exists(json_filename):
+                    with open(json_filename, 'r', encoding="utf-8") as jf:
+                        try:
+                            json_data = json.load(jf)
+                        except Exception:
+                            json_data = []
+                else:
+                    json_data = []
 
-            existing_json_posts = {(item.get("Name", ""), item.get("Content", "")) for item in json_data}
-            for item in new_data:
-                if (item["Name"], item["Content"]) not in existing_json_posts:
-                    json_data.append(item)
+                existing_json_posts = {(item.get("Name", ""), item.get("Content", "")) for item in json_data}
+                for item in new_data:
+                    if (item["Name"], item["Content"]) not in existing_json_posts:
+                        json_data.append(item)
 
-            with open(json_filename, 'w', encoding="utf-8") as jf:
-                json.dump(json_data, jf, ensure_ascii=False, indent=4)
+                with open(json_filename, 'w', encoding="utf-8") as jf:
+                    json.dump(json_data, jf, ensure_ascii=False, indent=4)
 
-            print(f"총 {len(new_data)}개의 새 게시글이 CSV 및 JSON 파일에 추가 저장되었습니다. 이미지는 linkedin_images 폴더에 저장되었습니다.")
+            save_message = []
+            if save_csv:
+                save_message.append("CSV")
+            if save_json:
+                save_message.append("JSON")
+            save_formats = " 및 ".join(save_message)
+            print(f"총 {len(new_data)}개의 새 게시글이 {save_formats} 파일에 추가 저장되었습니다. 이미지는 linkedin_images 폴더에 저장되었습니다.")
         else:
             print("추가할 새 게시글이 없습니다.")
     finally:
@@ -197,8 +207,8 @@ def scrape_linkedin(scroll_count=10):
 
 if __name__ == "__main__":
     try:
-        scroll_count = 1
-        scrape_linkedin(scroll_count=scroll_count)
+        scroll_count = 3
+        scrape_linkedin(scroll_count=scroll_count, save_csv=False, save_json=True)
     except Exception as e:
         print(f"오류 발생: {e}")
 # %%
